@@ -1,0 +1,58 @@
+---
+title: "Ray fish plots"
+output: html_notebook
+---
+
+Install the necessary packages.
+```{r}
+install.packages("tidyverse")
+library(tidyverse)
+install.packages("janitor")
+library(janitor)
+install.packages("rstatix")
+library(rstatix)
+install.packages("ggpubr")
+library(ggpubr)
+install.packages("svglite")
+library(svglite)
+```
+Read your csv.
+```{r}
+df<-read.csv("C:/Documents/histology/results/Results.csv") # Change this path to point to your dataset! Make sure your csv has the same structure as the csv showed in step 16 (and possibly the same column names).
+df <- df %>% clean_names() # This command makes all your variable names lowercase, and each word will be separated with an underscore.
+df<-df %>% convert_as_factor(time, id, ap, side) # Convert your factor variables to factor type.
+df$time<-factor(df$time, levels = c("1.5m", "3m","4m","7m"), labels = c("1.5 months", "3 months", "4 months", "7 months")) # You might not need this line. Here I rename my time points. If your time points appear on the plot in a weird order, you can also mend the problem with this command. 
+df$side<-factor(df$side, levels = c("R", "L"), labels = c("Tyr-", "Tyr+")) # This line is also optional. I preferred calling the two sides Tyr- and Tyr+.
+df$mode_norm<-df$mode_intensity-min(df$mode_intensity) # With this command you calculate the difference between the modal intensity of each image and the minimum modal intensity in your dataset. This is important in order to normalise your data.
+df # Visualise your data frame.
+```
+```{r}
+long <- df %>% # Convert your data frame to a long format.
+  pivot_longer(
+    cols = "v1":"v153", # Make sure to change "v153" to the number of columns you have.
+    names_to = "num",
+    values_to = "avg_int"
+)
+long$norm_norm_int<-long$avg_int-long$mode_norm # With this command you normalise everything to the lowest modal intensity.
+long<-long %>% filter(!is.na(norm_norm_int)) # This line is completely unnecessary. If you do not run it, you get a warning when you create the plot, but that is ok.
+long # Visualise your long format data frame.
+```
+Create the plot and save it in *.svg format.
+```{r}
+p<-long %>% ggplot(aes(x = side, y = norm_norm_int, fill = side)) + # Define x, y and color code. x is the variable which defines the two experimental groups.
+  geom_violin(aes(color = side), alpha = 0.4, size = 3, scale = "count") + # Add ray fish.
+  geom_jitter(aes(color = side), size = 1, alpha =1, position = position_jitterdodge(jitter.width = NULL,jitter.height = 0, dodge.width = .9)) + # Add jitter. Each dot corresponds to an ROI/cell.
+  scale_color_manual(values = c("skyblue3","gray7"),aesthetics = c("colour","fill")) + # Define colors you would like to use. Search for RStudio colors or give the hexadecimal code. You need as many colors as the number of levels your "side" variable has.
+  theme(panel.background = element_rect(fill = 'white', colour = 'white'),legend.position = "right", axis.line = element_line(colour = 'gray7', linewidth = 2.5),  panel.grid = element_blank())+ theme(text = element_text(size = 55), axis.ticks.length=unit(.25, "cm"), axis.ticks = element_line(linewidth = 2.5), plot.title = element_text(hjust = 0.5)) + # This is just aesthetic stuff. If you want to remove the legend, set its position to "none".
+  ggtitle("") + # Give title.
+  xlab("Time after injection") + # Name x axis. 
+  ylab("Average color intensity\n(normalized)") + # Name y axis.
+  facet_grid(cols = vars(time)) # Define facets. Remove this if you do not have a time variable !
+ggsave("ray_fish.svg", width = 30, height = 10) # Save the plot as SVG. Adjust the width to your needs.
+p
+dev.off()
+```
+You can find your plot in the following folder:
+```{r}
+getwd()
+```
